@@ -13,12 +13,10 @@ import torch.nn as nn
 torch.backends.cuda.matmul.allow_tf32 = True # for gpu >= Ampere and pytorch >= 1.12
 from functools import partial
 
-# from models.blocks import Block, DecoderBlock, PatchEmbed
-# from models.pos_embed import get_2d_sincos_pos_embed, RoPE2D 
-# from models.masking import RandomMask
 from .blocks import Block, DecoderBlock, PatchEmbed
 from .pos_embed import get_2d_sincos_pos_embed, RoPE2D 
 from .masking import RandomMask
+
 
 class CroCoNet(nn.Module):
 
@@ -39,7 +37,11 @@ class CroCoNet(nn.Module):
                 ):
                 
         super(CroCoNet, self).__init__()
-                
+
+        self.enc_depth = enc_depth
+        self.enc_embed_dim = enc_embed_dim
+        self.dec_depth = dec_depth
+        self.dec_embed_dim = dec_embed_dim
         # patch embeddings  (with initialization done as in MAE)
         self._set_patch_embed(img_size, patch_size, enc_embed_dim)
 
@@ -66,13 +68,16 @@ class CroCoNet(nn.Module):
             raise NotImplementedError('Unknown pos_embed '+pos_embed)
 
         # transformer for the encoder 
-        self.enc_depth = enc_depth
-        self.enc_embed_dim = enc_embed_dim
+
         self.enc_blocks = nn.ModuleList([
             Block(enc_embed_dim, enc_num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer, rope=self.rope)
             for i in range(enc_depth)])
         self.enc_norm = norm_layer(enc_embed_dim)
-        
+
+
+        self.dec_blocks_pc = nn.ModuleList([
+            Block(dec_embed_dim, dec_num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer, rope=self.rope)
+            for i in range(dec_depth//2-2)])
         # masked tokens 
         self._set_mask_token(dec_embed_dim)
 
